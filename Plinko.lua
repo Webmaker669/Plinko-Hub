@@ -9,38 +9,34 @@ local tweenService = game:GetService("TweenService")
 local userInputService = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
 
--- Script Active Trackers
+-- Global Shared Variables
 _G.BrainrotHubActive = true
+_G.HubElements = {}
 
-local isTpLooping = false
-local tpSpeed = 1.0
-local tpLocations = {
-    Vector3.new(-38, 19, 51),
-    Vector3.new(222, 46, 52)
+_G.HubState = {
+    isTpLooping = false,
+    tpSpeed = 1.0,
+    tpLocations = {Vector3.new(-38, 19, 51), Vector3.new(222, 46, 52)},
+    tpIndex = 1,
+    isDropLooping = false,
+    dropSpeed = 0.1,
+    dropAmount = 1000,
+    isMaxBetEnabled = false,
+    isRebirthLooping = false,
+    rebirthDelay = 1.0,
+    isAlwaysWinEnabled = false,
+    originalCFrame = nil,
+    originalSize = nil,
+    toggleKey = Enum.KeyCode.RightControl,
+    isListeningForKey = false
 }
-local tpIndex = 1
-
-local isDropLooping = false
-local dropSpeed = 0.1
-local dropAmount = 1000
-local isMaxBetEnabled = false
-
-local isRebirthLooping = false
-local rebirthDelay = 1.0
-
-local isAlwaysWinEnabled = false
-local originalCFrame = nil
-local originalSize = nil
-
--- Keybind Config
-local toggleKey = Enum.KeyCode.RightControl
-local isListeningForKey = false
 
 -- Create Main ScreenGui Container
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "BrainrotUltimateHub"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
+_G.HubElements.ScreenGui = screenGui
 
 -- Screen Toggle Floating Action Button (Always Visible)
 local screenToggleBtn = Instance.new("TextButton")
@@ -53,6 +49,7 @@ screenToggleBtn.Font = Enum.Font.SourceSansBold
 screenToggleBtn.TextSize = 22
 screenToggleBtn.Text = "☰"
 screenToggleBtn.Parent = screenGui
+_G.HubElements.ScreenToggleBtn = screenToggleBtn
 
 local screenToggleCorner = Instance.new("UICorner")
 screenToggleCorner.CornerRadius = UDim.new(1, 0)
@@ -65,7 +62,7 @@ screenToggleStroke.Parent = screenToggleBtn
 
 -- Main Window Shell (Dark blurred see-through styling)
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 420, 0, 300)
+mainFrame.Size = UDim2.new(0, 440, 0, 310) -- Sized slightly up to store layout elements smoothly
 mainFrame.Position = UDim2.new(0.35, 0, 0.3, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 mainFrame.BackgroundTransparency = 0.25
@@ -73,6 +70,7 @@ mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.Visible = true
 mainFrame.Parent = screenGui
+_G.HubElements.MainFrame = mainFrame
 
 local mainCorner = Instance.new("UICorner")
 mainCorner.CornerRadius = UDim.new(0, 12)
@@ -109,12 +107,13 @@ titleLabel.Parent = topDragHeader
 
 -- Left Navigation Sidebar Panel Layout
 local sidebar = Instance.new("Frame")
-sidebar.Size = UDim2.new(0, 110, 1, -35)
+sidebar.Size = UDim2.new(0, 115, 1, -35)
 sidebar.Position = UDim2.new(0, 0, 0, 35)
 sidebar.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
 sidebar.BackgroundTransparency = 0.5
 sidebar.BorderSizePixel = 0
 sidebar.Parent = mainFrame
+_G.HubElements.Sidebar = sidebar
 
 local sidebarCorner = Instance.new("UICorner")
 sidebarCorner.CornerRadius = UDim.new(0, 12)
@@ -122,10 +121,11 @@ sidebarCorner.Parent = sidebar
 
 -- Right Content Main Panel Box
 local contentContainer = Instance.new("Frame")
-contentContainer.Size = UDim2.new(1, -120, 1, -45)
-contentContainer.Position = UDim2.new(0, 115, 0, 40)
+contentContainer.Size = UDim2.new(1, -125, 1, -45)
+contentContainer.Position = UDim2.new(0, 120, 0, 40)
 contentContainer.BackgroundTransparency = 1
 contentContainer.Parent = mainFrame
+_G.HubElements.ContentContainer = contentContainer
 
 -- Top Drag-Bar Window Logic Handler
 local dragging, dragInput, dragStart, startPos
@@ -161,6 +161,9 @@ end)
 -- [PART 2]: TAB CREATION & LAYOUT BUTTONS
 -- ========================================================
 
+local sidebar = _G.HubElements.Sidebar
+local contentContainer = _G.HubElements.ContentContainer
+
 -- Shared UI Rounding Styling Generator Function
 local function applyModernTheme(element, radius, isInput)
     local corner = Instance.new("UICorner")
@@ -179,7 +182,7 @@ local pages = {}
 local function createTab(name, order)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -10, 0, 35)
-    btn.Position = UDim2.new(0, 5, 0, 10 + ((order-1) * 42))
+    btn.Position = UDim2.new(0, 5, 0, 10 + ((order-1) * 38))
     btn.BackgroundColor3 = order == 1 and Color3.fromRGB(50, 50, 50) or Color3.fromRGB(20, 20, 20)
     btn.BackgroundTransparency = 0.3
     btn.TextColor3 = order == 1 and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(170, 170, 170)
@@ -217,6 +220,20 @@ local dropPage = createTab("Auto Bet", 2)
 local rebirthPage = createTab("Auto Rebirth", 3)
 local settingsPage = createTab("Settings", 4)
 
+-- Disclaimer Asset (Underneath sidebar layout navigation options)
+local disclaimerLabel = Instance.new("TextLabel")
+disclaimerLabel.Size = UDim2.new(1, -10, 0, 95)
+disclaimerLabel.Position = UDim2.new(0, 5, 1, -105)
+disclaimerLabel.BackgroundTransparency = 1
+disclaimerLabel.TextColor3 = Color3.fromRGB(160, 120, 120)
+disclaimerLabel.Font = Enum.Font.SourceSansItalic
+disclaimerLabel.TextSize = 11
+disclaimerLabel.Text = "Disclaimer: Some features may get patched and not fixed by the script's creator."
+disclaimerLabel.TextWrapped = true
+disclaimerLabel.TextXAlignment = Enum.TextXAlignment.Center
+disclaimerLabel.TextYAlignment = Enum.TextYAlignment.Bottom
+disclaimerLabel.Parent = sidebar
+
 -- [TAB 1 ELEMENTS]: Auto Teleport
 local tpToggleBtn = Instance.new("TextButton")
 tpToggleBtn.Size = UDim2.new(1, -10, 0, 40)
@@ -229,6 +246,7 @@ tpToggleBtn.TextSize = 15
 tpToggleBtn.Text = "Auto TP: OFF"
 tpToggleBtn.Parent = tpPage
 applyModernTheme(tpToggleBtn, 8, false)
+_G.HubElements.TpToggleBtn = tpToggleBtn
 
 local tpSpeedLabel = Instance.new("TextLabel")
 tpSpeedLabel.Size = UDim2.new(1, -10, 0, 20)
@@ -249,10 +267,11 @@ tpSpeedInput.BackgroundTransparency = 0.4
 tpSpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 tpSpeedInput.Font = Enum.Font.SourceSans
 tpSpeedInput.TextSize = 15
-tpSpeedInput.Text = tostring(tpSpeed)
+tpSpeedInput.Text = tostring(_G.HubState.tpSpeed)
 tpSpeedInput.ClearTextOnFocus = false
 tpSpeedInput.Parent = tpPage
 applyModernTheme(tpSpeedInput, 6, true)
+_G.HubElements.TpSpeedInput = tpSpeedInput
 
 -- [TAB 2 ELEMENTS]: Auto Bet & Max Bet & Board Mod
 local dropToggleBtn = Instance.new("TextButton")
@@ -266,6 +285,7 @@ dropToggleBtn.TextSize = 15
 dropToggleBtn.Text = "Auto Bet: OFF"
 dropToggleBtn.Parent = dropPage
 applyModernTheme(dropToggleBtn, 8, false)
+_G.HubElements.DropToggleBtn = dropToggleBtn
 
 local maxBetToggleBtn = Instance.new("TextButton")
 maxBetToggleBtn.Size = UDim2.new(1, -10, 0, 30)
@@ -278,6 +298,7 @@ maxBetToggleBtn.TextSize = 13
 maxBetToggleBtn.Text = "Auto Max Bet: OFF"
 maxBetToggleBtn.Parent = dropPage
 applyModernTheme(maxBetToggleBtn, 6, false)
+_G.HubElements.MaxBetToggleBtn = maxBetToggleBtn
 
 local dropAmountInput = Instance.new("TextBox")
 dropAmountInput.Size = UDim2.new(1, -10, 0, 35)
@@ -285,10 +306,11 @@ dropAmountInput.Position = UDim2.new(0, 5, 0, 90)
 dropAmountInput.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 dropAmountInput.BackgroundTransparency = 0.4
 dropAmountInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-dropAmountInput.Text = tostring(dropAmount)
+dropAmountInput.Text = tostring(_G.HubState.dropAmount)
 dropAmountInput.ClearTextOnFocus = false
 dropAmountInput.Parent = dropPage
 applyModernTheme(dropAmountInput, 6, true)
+_G.HubElements.DropAmountInput = dropAmountInput
 
 local winToggleBtn = Instance.new("TextButton")
 winToggleBtn.Size = UDim2.new(1, -10, 0, 35)
@@ -301,6 +323,7 @@ winToggleBtn.TextSize = 14
 winToggleBtn.Text = "Always Win (Board Expand): OFF"
 winToggleBtn.Parent = dropPage
 applyModernTheme(winToggleBtn, 8, false)
+_G.HubElements.WinToggleBtn = winToggleBtn
 
 -- [TAB 3 ELEMENTS]: Auto Rebirth
 local rebirthToggleBtn = Instance.new("TextButton")
@@ -314,6 +337,7 @@ rebirthToggleBtn.TextSize = 16
 rebirthToggleBtn.Text = "Auto Rebirth: OFF"
 rebirthToggleBtn.Parent = rebirthPage
 applyModernTheme(rebirthToggleBtn, 8, false)
+_G.HubElements.RebirthToggleBtn = rebirthToggleBtn
 
 local rebirthStatusLabel = Instance.new("TextLabel")
 rebirthStatusLabel.Size = UDim2.new(1, -10, 0, 60)
@@ -327,19 +351,9 @@ rebirthStatusLabel.TextWrapped = true
 rebirthStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 rebirthStatusLabel.TextYAlignment = Enum.TextYAlignment.Top
 rebirthStatusLabel.Parent = rebirthPage
+_G.HubElements.RebirthStatusLabel = rebirthStatusLabel
 
 -- [TAB 4 ELEMENTS]: Settings & Hotkey Config
-local bindLabel = Instance.new("TextLabel")
-bindLabel.Size = UDim2.new(1, -10, 0, 20)
-bindLabel.Position = UDim2.new(0, 5, 0, 5)
-bindLabel.BackgroundTransparency = 1
-bindLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-bindLabel.Font = Enum.Font.SourceSans
-bindLabel.TextSize = 14
-bindLabel.Text = "Click Button to Set Open/Close Keybind:"
-bindLabel.TextXAlignment = Enum.TextXAlignment.Left
-bindLabel.Parent = settingsPage
-
 local bindToggleBtn = Instance.new("TextButton")
 bindToggleBtn.Size = UDim2.new(1, -10, 0, 35)
 bindToggleBtn.Position = UDim2.new(0, 5, 0, 30)
@@ -350,6 +364,7 @@ bindToggleBtn.TextSize = 14
 bindToggleBtn.Text = "Keybind: RightControl"
 bindToggleBtn.Parent = settingsPage
 applyModernTheme(bindToggleBtn, 8, false)
+_G.HubElements.BindToggleBtn = bindToggleBtn
 
 local unloadBtn = Instance.new("TextButton")
 unloadBtn.Size = UDim2.new(1, -10, 0, 40)
@@ -361,6 +376,7 @@ unloadBtn.TextSize = 15
 unloadBtn.Text = "UNLOAD HUB SCRIPT"
 unloadBtn.Parent = settingsPage
 applyModernTheme(unloadBtn, 8, false)
+_G.HubElements.UnloadBtn = unloadBtn
 
 -- ========================================================
 -- END OF PART 2 | STARTING PART 3 BELOW
@@ -370,187 +386,189 @@ applyModernTheme(unloadBtn, 8, false)
 -- [PART 3]: AUTOMATION LOOPS, MATHEMATICS & CLEAN UNLOADER
 -- ========================================================
 
--- Safe Converter Engine (Handles Strings, Numbers, commas, and formatting suffixes safely)
+local player = game.Players.LocalPlayer
+local userInputService = game:GetService("UserInputService")
+local state = _G.HubState
+local ui = _G.HubElements
+
+-- Safe Converter Engine (Patches calculation formatting bugs)
 local function parseRawValue(val)
     if type(val) == "number" then return val end
     if type(val) ~= "string" then return 0 end
-    
     local cleaned = val:gsub("[%,%s]", ""):upper()
     local suffix = cleaned:sub(-1)
-    
     if suffix == "K" then return (tonumber(cleaned:sub(1, -2)) or 0) * 1000
     elseif suffix == "M" then return (tonumber(cleaned:sub(1, -2)) or 0) * 1000000
-    elseif suffix == "B" then return (tonumber(cleaned:sub(1, -2)) or 0) * 1000000000 
-    end
+    elseif suffix == "B" then return (tonumber(cleaned:sub(1, -2)) or 0) * 1000000000 end
     return tonumber(cleaned) or tonumber(cleaned:match("%d+")) or 0
 end
 
--- Screen Toggle Handler Setup
+-- Open/Close Handler
 local function toggleGuiDisplay()
-    mainFrame.Visible = not mainFrame.Visible
+    ui.MainFrame.Visible = not ui.MainFrame.Visible
 end
 
-screenToggleBtn.MouseButton1Click:Connect(toggleGuiDisplay)
+ui.ScreenToggleBtn.MouseButton1Click:Connect(toggleGuiDisplay)
 
-bindToggleBtn.MouseButton1Click:Connect(function()
-    if not isListeningForKey then
-        isListeningForKey = true
-        bindToggleBtn.Text = "...Press Any Key..."
-        bindToggleBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 20)
+ui.BindToggleBtn.MouseButton1Click:Connect(function()
+    if not state.isListeningForKey then
+        state.isListeningForKey = true
+        ui.BindToggleBtn.Text = "...Press Any Key..."
+        ui.BindToggleBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 20)
     end
 end)
 
 userInputService.InputBegan:Connect(function(input, processed)
-    if isListeningForKey and input.UserInputType == Enum.UserInputType.Keyboard then
-        toggleKey = input.KeyCode
-        isListeningForKey = false
-        bindToggleBtn.Text = "Keybind: " .. tostring(toggleKey.Name)
-        bindToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    elseif not processed and input.KeyCode == toggleKey then
+    if state.isListeningForKey and input.UserInputType == Enum.UserInputType.Keyboard then
+        state.toggleKey = input.KeyCode
+        state.isListeningForKey = false
+        ui.BindToggleBtn.Text = "Keybind: " .. tostring(state.toggleKey.Name)
+        ui.BindToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    elseif not processed and input.KeyCode == state.toggleKey then
         toggleGuiDisplay()
     end
 end)
 
--- Loop System: Auto Teleport Thread
+-- Loop Thread: Auto Teleport
 local function teleportLoop()
-    while isTpLooping and _G.BrainrotHubActive do
+    while state.isTpLooping and _G.BrainrotHubActive do
         local character = player.Character or player.CharacterAdded:Wait()
         local rootPart = character:WaitForChild("HumanoidRootPart", 5)
         if rootPart then
-            rootPart.CFrame = CFrame.new(tpLocations[tpIndex])
-            tpIndex = (tpIndex == 1) and 2 or 1
+            rootPart.CFrame = CFrame.new(state.tpLocations[state.tpIndex])
+            state.tpIndex = (state.tpIndex == 1) and 2 or 1
         end
-        task.wait(tpSpeed)
+        task.wait(state.tpSpeed)
     end
 end
 
-tpToggleBtn.MouseButton1Click:Connect(function()
-    isTpLooping = not isTpLooping
-    tpToggleBtn.Text = isTpLooping and "Auto TP: ON" or "Auto TP: OFF"
-    tpToggleBtn.BackgroundColor3 = isTpLooping and Color3.fromRGB(40, 140, 40) or Color3.fromRGB(150, 40, 40)
-    if isTpLooping then task.spawn(teleportLoop) end
+ui.TpToggleBtn.MouseButton1Click:Connect(function()
+    state.isTpLooping = not state.isTpLooping
+    ui.TpToggleBtn.Text = state.isTpLooping and "Auto TP: ON" or "Auto TP: OFF"
+    ui.TpToggleBtn.BackgroundColor3 = state.isTpLooping and Color3.fromRGB(40, 140, 40) or Color3.fromRGB(150, 40, 40)
+    if state.isTpLooping then task.spawn(teleportLoop) end
 end)
 
-tpSpeedInput.FocusLost:Connect(function()
-    local num = tonumber(tpSpeedInput.Text)
-    if num and num >= 0 then tpSpeed = num else tpSpeedInput.Text = tostring(tpSpeed) end
+ui.TpSpeedInput.FocusLost:Connect(function()
+    local num = tonumber(ui.TpSpeedInput.Text)
+    if num and num >= 0 then state.tpSpeed = num else ui.TpSpeedInput.Text = tostring(state.tpSpeed) end
 end)
 
--- Auto Dynamic Max Bet Checker
+-- Auto Dynamic Max Bet Balance Checker Safeguard
 local function getLatestDropAmount()
-    if isMaxBetEnabled then
+    if state.isMaxBetEnabled then
         local leaderstats = player:FindFirstChild("leaderstats")
         local coins = leaderstats and leaderstats:FindFirstChild("Coins")
         if coins then
             local balance = parseRawValue(coins.Value)
-            if balance > 0 then
-                dropAmountInput.Text = tostring(balance)
+            if balance and balance > 0 then
+                ui.DropAmountInput.Text = tostring(balance)
                 return balance
             end
         end
     end
-    return parseRawValue(dropAmount)
+    return parseRawValue(state.dropAmount) -- Fallback safely to current typed value instead of breaking at 5
 end
 
--- Loop System: Auto Bet Plinko Remote Drop
+-- Loop Thread: Auto Bet
 local function dropLoop()
     local remote = game:GetService("ReplicatedStorage"):WaitForChild("BrainrotPlinkoDrop", 5)
-    while isDropLooping and _G.BrainrotHubActive and remote do
+    while state.isDropLooping and _G.BrainrotHubActive and remote do
         local activeBet = getLatestDropAmount()
         remote:FireServer(activeBet)
-        task.wait(dropSpeed)
+        task.wait(state.dropSpeed)
     end
 end
 
-dropToggleBtn.MouseButton1Click:Connect(function()
-    isDropLooping = not isDropLooping
-    dropToggleBtn.Text = isDropLooping and "Auto Bet: ON" or "Auto Bet: OFF"
-    dropToggleBtn.BackgroundColor3 = isDropLooping and Color3.fromRGB(40, 140, 40) or Color3.fromRGB(150, 40, 40)
-    if isDropLooping then task.spawn(dropLoop) end
+ui.DropToggleBtn.MouseButton1Click:Connect(function()
+    state.isDropLooping = not state.isDropLooping
+    ui.DropToggleBtn.Text = state.isDropLooping and "Auto Bet: ON" or "Auto Bet: OFF"
+    ui.DropToggleBtn.BackgroundColor3 = state.isDropLooping and Color3.fromRGB(40, 140, 40) or Color3.fromRGB(150, 40, 40)
+    if state.isDropLooping then task.spawn(dropLoop) end
 end)
 
-maxBetToggleBtn.MouseButton1Click:Connect(function()
-    isMaxBetEnabled = not isMaxBetEnabled
-    maxBetToggleBtn.Text = isMaxBetEnabled and "Auto Max Bet: ON" or "Auto Max Bet: OFF"
-    maxBetToggleBtn.BackgroundColor3 = isMaxBetEnabled and Color3.fromRGB(40, 140, 40) or Color3.fromRGB(150, 40, 40)
-    if isMaxBetEnabled then getLatestDropAmount() end
+ui.MaxBetToggleBtn.MouseButton1Click:Connect(function()
+    state.isMaxBetEnabled = not state.isMaxBetEnabled
+    ui.MaxBetToggleBtn.Text = state.isMaxBetEnabled and "Auto Max Bet: ON" or "Auto Max Bet: OFF"
+    ui.MaxBetToggleBtn.BackgroundColor3 = state.isMaxBetEnabled and Color3.fromRGB(40, 140, 40) or Color3.fromRGB(150, 40, 40)
+    if state.isMaxBetEnabled then getLatestDropAmount() end
 end)
 
-dropAmountInput.FocusLost:Connect(function()
-    local num = tonumber(dropAmountInput.Text)
-    if num then dropAmount = num else dropAmountInput.Text = tostring(dropAmount) end
+ui.DropAmountInput.FocusLost:Connect(function()
+    local num = tonumber(ui.DropAmountInput.Text)
+    if num then state.dropAmount = num else ui.DropAmountInput.Text = tostring(state.dropAmount) end
 end)
 
 -- Always Win Expansion Platform Module
-winToggleBtn.MouseButton1Click:Connect(function()
+ui.WinToggleBtn.MouseButton1Click:Connect(function()
     local targetPad = workspace:FindFirstChild("BrainrotPlinkoBoard") and workspace.BrainrotPlinkoBoard:FindFirstChild("BinPad1")
     if not targetPad then
-        winToggleBtn.Text = "Error: BinPad1 Missing!"
+        ui.WinToggleBtn.Text = "Error: BinPad1 Missing!"
         return
     end
-
-    isAlwaysWinEnabled = not isAlwaysWinEnabled
-    if isAlwaysWinEnabled then
-        originalCFrame = targetPad.CFrame
-        originalSize = targetPad.Size
+    state.isAlwaysWinEnabled = not state.isAlwaysWinEnabled
+    if state.isAlwaysWinEnabled then
+        state.originalCFrame = targetPad.CFrame
+        state.originalSize = targetPad.Size
         targetPad.CFrame = CFrame.new(-147.938568, 24, -57.5162621, 1, 0, 0, 0, 1, 0, 0, 0, 1)
         targetPad.Size = Vector3.new(119.05000305175781, 1.2599999904632568, 9)
-        winToggleBtn.Text = "Always Win: ON"
-        winToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 40)
+        ui.WinToggleBtn.Text = "Always Win: ON"
+        ui.WinToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 140, 40)
     else
-        if originalCFrame and originalSize then
-            targetPad.CFrame = originalCFrame
-            targetPad.Size = originalSize
+        if state.originalCFrame and state.originalSize then
+            targetPad.CFrame = state.originalCFrame
+            targetPad.Size = state.originalSize
         end
-        winToggleBtn.Text = "Always Win: OFF"
-        winToggleBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+        ui.WinToggleBtn.Text = "Always Win: OFF"
+        ui.WinToggleBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
     end
 end)
 
--- Loop System: Auto Validation Rebirth Thread
+-- Loop Thread: Auto Rebirth Thread Validation Check Fix
 local function rebirthLoop()
     local remote = game:GetService("ReplicatedStorage"):WaitForChild("BrainrotPlinkoRebirth", 5)
-    local button = playerGui:WaitForChild("PlinkoExtraControlsGui", 5):WaitForChild("RebirthButton", 5)
+    local button = player.PlayerGui:WaitForChild("PlinkoExtraControlsGui", 5):WaitForChild("RebirthButton", 5)
     local leaderstats = player:WaitForChild("leaderstats", 5)
     local coinsValue = leaderstats and leaderstats:WaitForChild("Coins", 5)
     
-    while isRebirthLooping and _G.BrainrotHubActive and remote and button and coinsValue do
+    while state.isRebirthLooping and _G.BrainrotHubActive and remote and button and coinsValue do
         local requiredMoney = parseRawValue(button.Text)
         local currentMoney = parseRawValue(coinsValue.Value)
-        rebirthStatusLabel.Text = string.format("Need: %s\nHave: %s", button.Text, tostring(currentMoney))
         
         if currentMoney >= requiredMoney and requiredMoney > 0 then
+            ui.RebirthStatusLabel.Text = string.format("Rebirthing!\nNeed: %s | Have: %s", button.Text, tostring(currentMoney))
             remote:FireServer()
-            rebirthStatusLabel.Text = "Status: Rebirth Triggered!"
             task.wait(0.5)
+        else
+            ui.RebirthStatusLabel.Text = string.format("Status: Insufficient Coins\nNeed: %s | Have: %s", button.Text, tostring(currentMoney))
         end
-        task.wait(rebirthDelay)
+        task.wait(state.rebirthDelay)
     end
 end
 
-rebirthToggleBtn.MouseButton1Click:Connect(function()
-    isRebirthLooping = not isRebirthLooping
-    rebirthToggleBtn.Text = isRebirthLooping and "Auto Rebirth: ON" or "Auto Rebirth: OFF"
-    rebirthToggleBtn.BackgroundColor3 = isRebirthLooping and Color3.fromRGB(40, 140, 40) or Color3.fromRGB(150, 40, 40)
-    if isRebirthLooping then task.spawn(rebirthLoop) else rebirthStatusLabel.Text = "Status: Waiting..." end
+ui.RebirthToggleBtn.MouseButton1Click:Connect(function()
+    state.isRebirthLooping = not state.isRebirthLooping
+    ui.RebirthToggleBtn.Text = state.isRebirthLooping and "Auto Rebirth: ON" or "Auto Rebirth: OFF"
+    ui.RebirthToggleBtn.BackgroundColor3 = state.isRebirthLooping and Color3.fromRGB(40, 140, 40) or Color3.fromRGB(150, 40, 40)
+    if state.isRebirthLooping then task.spawn(rebirthLoop) else ui.RebirthStatusLabel.Text = "Status: Waiting..." end
 end)
 
--- Clean Script Unload Destroyer Module
-unloadBtn.MouseButton1Click:Connect(function()
+-- Unload Module
+ui.UnloadBtn.MouseButton1Click:Connect(function()
     _G.BrainrotHubActive = false
-    isTpLooping = false
-    isDropLooping = false
-    isRebirthLooping = false
-    
-    if isAlwaysWinEnabled then
+    state.isTpLooping = false
+    state.isDropLooping = false
+    state.isRebirthLooping = false
+    if state.isAlwaysWinEnabled then
         local targetPad = workspace:FindFirstChild("BrainrotPlinkoBoard") and workspace.BrainrotPlinkoBoard:FindFirstChild("BinPad1")
-        if targetPad and originalCFrame and originalSize then
-            targetPad.CFrame = originalCFrame
-            targetPad.Size = originalSize
+        if targetPad and state.originalCFrame and state.originalSize then
+            targetPad.CFrame = state.originalCFrame
+            targetPad.Size = state.originalSize
         end
     end
-    screenGui:Destroy()
+    ui.ScreenGui:Destroy()
 end)
 -- ========================================================
--- END OF SCRIPT FRAMEWORK
+-- END OF SCRIPT SCRIPT FRAMEWORK
 -- ========================================================
+
