@@ -1,8 +1,17 @@
 -- ========================================================
--- [PART 1]: ENGINE STATE CONFIG & UI ARCHITECTURE
+-- [PART 1]: INITIAL STATE, BLUR SYSTEM, & COMPACT FRAMEWORK
 -- ========================================================
 
--- Configuration and States
+-- Configuration and Core States
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local tweenService = game:GetService("TweenService")
+local userInputService = game:GetService("UserInputService")
+local runService = game:GetService("RunService")
+
+-- Script Active Trackers
+_G.BrainrotHubActive = true
+
 local isTpLooping = false
 local tpSpeed = 1.0
 local tpLocations = {
@@ -14,352 +23,192 @@ local tpIndex = 1
 local isDropLooping = false
 local dropSpeed = 0.1
 local dropAmount = 1000
+local isMaxBetEnabled = false
 
 local isRebirthLooping = false
 local rebirthDelay = 1.0
 
--- Create ScreenGui Container
-local player = game.Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local isAlwaysWinEnabled = false
+local originalCFrame = nil
+local originalSize = nil
+
+-- Keybind Config
+local toggleKey = Enum.KeyCode.RightControl
+local isListeningForKey = false
+
+-- Create Main ScreenGui Container
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "BrainrotHubGui"
+screenGui.Name = "BrainrotUltimateHub"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
--- Create Main Window Frame
+-- Screen Toggle Floating Action Button (Always Visible)
+local screenToggleBtn = Instance.new("TextButton")
+screenToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+screenToggleBtn.Position = UDim2.new(0.05, 0, 0.2, 0)
+screenToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+screenToggleBtn.BackgroundTransparency = 0.3
+screenToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+screenToggleBtn.Font = Enum.Font.SourceSansBold
+screenToggleBtn.TextSize = 24
+screenToggleBtn.Text = "☰"
+screenToggleBtn.Parent = screenGui
+
+local screenToggleCorner = Instance.new("UICorner")
+screenToggleCorner.CornerRadius = UDim.new(1, 0)
+screenToggleCorner.Parent = screenToggleBtn
+
+local screenToggleStroke = Instance.new("UIStroke")
+screenToggleStroke.Color = Color3.fromRGB(80, 80, 80)
+screenToggleStroke.Thickness = 1.5
+screenToggleStroke.Parent = screenToggleBtn
+
+-- Main Window Shell
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 350, 0, 250)
-mainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
-mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.Size = UDim2.new(0, 420, 0, 300)
+mainFrame.Position = UDim2.new(0.35, 0, 0.3, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+mainFrame.BackgroundTransparency = 0.25 -- Acrylic blurred aesthetic base
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
-mainFrame.Draggable = true
+mainFrame.Visible = true
 mainFrame.Parent = screenGui
 
 local mainCorner = Instance.new("UICorner")
-mainCorner.CornerRadius = UDim.new(0, 8)
+mainCorner.CornerRadius = UDim.new(0, 12)
 mainCorner.Parent = mainFrame
 
--- Left Navigation Sidebar
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = Color3.fromRGB(60, 60, 60)
+mainStroke.Thickness = 1.5
+mainStroke.Parent = mainFrame
+
+-- Browser Header Style Top Drag Bar
+local topDragHeader = Instance.new("Frame")
+topDragHeader.Size = UDim2.new(1, 0, 0, 35)
+topDragHeader.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+topDragHeader.BackgroundTransparency = 0.4
+topDragHeader.BorderSizePixel = 0
+topDragHeader.Parent = mainFrame
+
+local headerCorner = Instance.new("UICorner")
+headerCorner.CornerRadius = UDim.new(0, 12)
+headerCorner.Parent = topDragHeader
+
+-- Text Title Label
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -20, 1, 0)
+titleLabel.Position = UDim2.new(0, 12, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.TextSize = 15
+titleLabel.Text = "BRAINROT PLINKO SUPREME HUB v2"
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Parent = topDragHeader
+
+-- Left Navigation Sidebar Panel Layout
 local sidebar = Instance.new("Frame")
-sidebar.Size = UDim2.new(0, 100, 1, 0)
-sidebar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+sidebar.Size = UDim2.new(0, 110, 1, -35)
+sidebar.Position = UDim2.new(0, 0, 0, 35)
+sidebar.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+sidebar.BackgroundTransparency = 0.5
 sidebar.BorderSizePixel = 0
 sidebar.Parent = mainFrame
 
 local sidebarCorner = Instance.new("UICorner")
-sidebarCorner.CornerRadius = UDim.new(0, 8)
+sidebarCorner.CornerRadius = UDim.new(0, 12)
 sidebarCorner.Parent = sidebar
 
--- Sidebar Buttons
-local tpTabBtn = Instance.new("TextButton")
-tpTabBtn.Size = UDim2.new(1, -10, 0, 40)
-tpTabBtn.Position = UDim2.new(0, 5, 0, 10)
-tpTabBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-tpTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-tpTabBtn.Font = Enum.Font.SourceSansBold
-tpTabBtn.TextSize = 14
-tpTabBtn.Text = "Auto TP"
-tpTabBtn.Parent = sidebar
-
-local dropTabBtn = Instance.new("TextButton")
-dropTabBtn.Size = UDim2.new(1, -10, 0, 40)
-dropTabBtn.Position = UDim2.new(0, 5, 0, 55)
-dropTabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-dropTabBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
-dropTabBtn.Font = Enum.Font.SourceSansBold
-dropTabBtn.TextSize = 14
-dropTabBtn.Text = "Auto Bet"
-dropTabBtn.Parent = sidebar
-
-local rebirthTabBtn = Instance.new("TextButton")
-rebirthTabBtn.Size = UDim2.new(1, -10, 0, 40)
-rebirthTabBtn.Position = UDim2.new(0, 5, 0, 100)
-rebirthTabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-rebirthTabBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
-rebirthTabBtn.Font = Enum.Font.SourceSansBold
-rebirthTabBtn.TextSize = 14
-rebirthTabBtn.Text = "Auto Rebirth"
-rebirthTabBtn.Parent = sidebar
-
--- Right Content Panel Frame
+-- Right Content Main Panel Box
 local contentContainer = Instance.new("Frame")
-contentContainer.Size = UDim2.new(1, -110, 1, -10)
-contentContainer.Position = UDim2.new(0, 105, 0, 5)
+contentContainer.Size = UDim2.new(1, -120, 1, -45)
+contentContainer.Position = UDim2.new(0, 115, 0, 40)
 contentContainer.BackgroundTransparency = 1
 contentContainer.Parent = mainFrame
 
--- Page 1: Teleport Layout Elements
-local tpPage = Instance.new("Frame")
-tpPage.Size = UDim2.new(1, 0, 1, 0)
-tpPage.BackgroundTransparency = 1
-tpPage.Visible = true
-tpPage.Parent = contentContainer
+-- Shared UI Styling Generator Function
+local function applyModernTheme(element, radius, isInput)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius)
+    corner.Parent = element
 
-local tpToggleBtn = Instance.new("TextButton")
-tpToggleBtn.Size = UDim2.new(1, -10, 0, 40)
-tpToggleBtn.Position = UDim2.new(0, 5, 0, 10)
-tpToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-tpToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-tpToggleBtn.Font = Enum.Font.SourceSansBold
-tpToggleBtn.TextSize = 16
-tpToggleBtn.Text = "Auto TP: OFF"
-tpToggleBtn.Parent = tpPage
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 1
+    stroke.Color = isInput and Color3.fromRGB(90, 90, 90) or Color3.fromRGB(50, 50, 50)
+    stroke.Parent = element
+end
 
-local tpToggleCorner = Instance.new("UICorner")
-tpToggleCorner.CornerRadius = UDim.new(0, 6)
-tpToggleCorner.Parent = tpToggleBtn
+-- Top Drag-Bar Browser Window Logic Handler
+local dragging, dragInput, dragStart, startPos
+topDragHeader.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
 
-local tpSpeedLabel = Instance.new("TextLabel")
-tpSpeedLabel.Size = UDim2.new(1, -10, 0, 20)
-tpSpeedLabel.Position = UDim2.new(0, 5, 0, 65)
-tpSpeedLabel.BackgroundTransparency = 1
-tpSpeedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-tpSpeedLabel.Font = Enum.Font.SourceSans
-tpSpeedLabel.TextSize = 14
-tpSpeedLabel.Text = "TP Delay (seconds):"
-tpSpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
-tpSpeedLabel.Parent = tpPage
+topDragHeader.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
 
-local tpSpeedInput = Instance.new("TextBox")
-tpSpeedInput.Size = UDim2.new(1, -10, 0, 35)
-tpSpeedInput.Position = UDim2.new(0, 5, 0, 90)
-tpSpeedInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-tpSpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-tpSpeedInput.Font = Enum.Font.SourceSans
-tpSpeedInput.TextSize = 16
-tpSpeedInput.Text = tostring(tpSpeed)
-tpSpeedInput.ClearTextOnFocus = false
-tpSpeedInput.Parent = tpPage
+userInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
 
-local tpInputCorner = Instance.new("UICorner")
-tpInputCorner.CornerRadius = UDim.new(0, 6)
-tpInputCorner.Parent = tpSpeedInput
+-- Sidebar Button Builder Setup
+local tabs = {}
+local pages = {}
+local function createTab(name, order)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -10, 0, 35)
+    btn.Position = UDim2.new(0, 5, 0, 10 + ((order-1) * 42))
+    btn.BackgroundColor3 = order == 1 and Color3.fromRGB(50, 50, 50) or Color3.fromRGB(20, 20, 20)
+    btn.BackgroundTransparency = 0.3
+    btn.TextColor3 = order == 1 and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(170, 170, 170)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 13
+    btn.Text = name
+    btn.Parent = sidebar
+    applyModernTheme(btn, 6, false)
+
+    local page = Instance.new("Frame")
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.BackgroundTransparency = 1
+    page.Visible = order == 1
+    page.Parent = contentContainer
+
+    tabs[name] = btn
+    pages[name] = page
+
+    btn.MouseButton1Click:Connect(function()
+        for tName, tBtn in pairs(tabs) do
+            tBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+            tBtn.TextColor3 = Color3.fromRGB(170, 170, 170)
+            pages[tName].Visible = false
+        end
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        page.Visible = true
+    end)
+    return page
+end
+
+-- Construct Interface Functional Tabs
+local tpPage = createTab("Auto TP", 1)
+local dropPage = createTab("Auto Bet", 2)
+local rebirthPage = createTab("Auto Rebirth", 3)
+local settingsPage = createTab("Settings", 4)
 
 -- ========================================================
 -- END OF PART 1 | STARTING PART 2 BELOW
--- ========================================================
-
--- ========================================================
--- [PART 2]: TARGET CONTENT PAGES & FUNCTIONAL LOOPS
--- ========================================================
-
--- Page 2: Drop / Bet Layout Elements
-local dropPage = Instance.new("Frame")
-dropPage.Size = UDim2.new(1, 0, 1, 0)
-dropPage.BackgroundTransparency = 1
-dropPage.Visible = false
-dropPage.Parent = contentContainer
-
-local dropToggleBtn = Instance.new("TextButton")
-dropToggleBtn.Size = UDim2.new(1, -10, 0, 40)
-dropToggleBtn.Position = UDim2.new(0, 5, 0, 10)
-dropToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-dropToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-dropToggleBtn.Font = Enum.Font.SourceSansBold
-dropToggleBtn.TextSize = 16
-dropToggleBtn.Text = "Auto Bet: OFF"
-dropToggleBtn.Parent = dropPage
-
-local dropToggleCorner = Instance.new("UICorner")
-dropToggleCorner.CornerRadius = UDim.new(0, 6)
-dropToggleCorner.Parent = dropToggleBtn
-
-local dropAmountLabel = Instance.new("TextLabel")
-dropAmountLabel.Size = UDim2.new(1, -10, 0, 20)
-dropAmountLabel.Position = UDim2.new(0, 5, 0, 65)
-dropAmountLabel.BackgroundTransparency = 1
-dropAmountLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-dropAmountLabel.Font = Enum.Font.SourceSans
-dropAmountLabel.TextSize = 14
-dropAmountLabel.Text = "Bet Amount:"
-dropAmountLabel.TextXAlignment = Enum.TextXAlignment.Left
-dropAmountLabel.Parent = dropPage
-
-local dropAmountInput = Instance.new("TextBox")
-dropAmountInput.Size = UDim2.new(1, -10, 0, 35)
-dropAmountInput.Position = UDim2.new(0, 5, 0, 90)
-dropAmountInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-dropAmountInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-dropAmountInput.Font = Enum.Font.SourceSans
-dropAmountInput.TextSize = 16
-dropAmountInput.Text = tostring(dropAmount)
-dropAmountInput.ClearTextOnFocus = false
-dropAmountInput.Parent = dropPage
-
-local dropAmountCorner = Instance.new("UICorner")
-dropAmountCorner.CornerRadius = UDim.new(0, 6)
-dropAmountCorner.Parent = dropAmountInput
-
--- Page 3: Rebirth Layout Elements
-local rebirthPage = Instance.new("Frame")
-rebirthPage.Size = UDim2.new(1, 0, 1, 0)
-rebirthPage.BackgroundTransparency = 1
-rebirthPage.Visible = false
-rebirthPage.Parent = contentContainer
-
-local rebirthToggleBtn = Instance.new("TextButton")
-rebirthToggleBtn.Size = UDim2.new(1, -10, 0, 40)
-rebirthToggleBtn.Position = UDim2.new(0, 5, 0, 10)
-rebirthToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-rebirthToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-rebirthToggleBtn.Font = Enum.Font.SourceSansBold
-rebirthToggleBtn.TextSize = 16
-rebirthToggleBtn.Text = "Auto Rebirth: OFF"
-rebirthToggleBtn.Parent = rebirthPage
-
-local rebirthToggleCorner = Instance.new("UICorner")
-rebirthToggleCorner.CornerRadius = UDim.new(0, 6)
-rebirthToggleCorner.Parent = rebirthToggleBtn
-
-local rebirthStatusLabel = Instance.new("TextLabel")
-rebirthStatusLabel.Size = UDim2.new(1, -10, 0, 60)
-rebirthStatusLabel.Position = UDim2.new(0, 5, 0, 65)
-rebirthStatusLabel.BackgroundTransparency = 1
-rebirthStatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-rebirthStatusLabel.Font = Enum.Font.SourceSans
-rebirthStatusLabel.TextSize = 14
-rebirthStatusLabel.Text = "Status: Waiting..."
-rebirthStatusLabel.TextWrapped = true
-rebirthStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-rebirthStatusLabel.TextYAlignment = Enum.TextYAlignment.Top
-rebirthStatusLabel.Parent = rebirthPage
-
--- Tab Switching Logic Engine
-local function updateTabs(activeBtn, activePage)
-    tpPage.Visible = false
-    dropPage.Visible = false
-    rebirthPage.Visible = false
-    
-    tpTabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    tpTabBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
-    dropTabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    dropTabBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
-    rebirthTabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    rebirthTabBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
-    
-    activePage.Visible = true
-    activeBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    activeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-end
-
-tpTabBtn.MouseButton1Click:Connect(function() updateTabs(tpTabBtn, tpPage) end)
-dropTabBtn.MouseButton1Click:Connect(function() updateTabs(dropTabBtn, dropPage) end)
-rebirthTabBtn.MouseButton1Click:Connect(function() updateTabs(rebirthTabBtn, rebirthPage) end)
-
--- Loop System: Auto Teleport Thread
-local function teleportLoop()
-    while isTpLooping do
-        local character = player.Character or player.CharacterAdded:Wait()
-        local rootPart = character:WaitForChild("HumanoidRootPart", 5)
-        if rootPart then
-            rootPart.CFrame = CFrame.new(tpLocations[tpIndex])
-            tpIndex = (tpIndex == 1) and 2 or 1
-        end
-        task.wait(tpSpeed)
-    end
-end
-
-tpToggleBtn.MouseButton1Click:Connect(function()
-    isTpLooping = not isTpLooping
-    if isTpLooping then
-        tpToggleBtn.Text = "Auto TP: ON"
-        tpToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
-        task.spawn(teleportLoop)
-    else
-        tpToggleBtn.Text = "Auto TP: OFF"
-        tpToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    end
-end)
-
-tpSpeedInput.FocusLost:Connect(function()
-    local num = tonumber(tpSpeedInput.Text)
-    if num and num >= 0 then tpSpeed = num else tpSpeedInput.Text = tostring(tpSpeed) end
-end)
-
--- Loop System: Auto Bet Plinko Remote Drop
-local function dropLoop()
-    local remote = game:GetService("ReplicatedStorage"):WaitForChild("BrainrotPlinkoDrop", 5)
-    if not remote then return end
-    while isDropLooping do
-        remote:FireServer(dropAmount)
-        task.wait(dropSpeed)
-    end
-end
-
-dropToggleBtn.MouseButton1Click:Connect(function()
-    isDropLooping = not isDropLooping
-    if isDropLooping then
-        dropToggleBtn.Text = "Auto Bet: ON"
-        dropToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
-        task.spawn(dropLoop)
-    else
-        dropToggleBtn.Text = "Auto Bet: OFF"
-        dropToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    end
-end)
-
-dropAmountInput.FocusLost:Connect(function()
-    local num = tonumber(dropAmountInput.Text)
-    if num then dropAmount = num else dropAmountInput.Text = tostring(dropAmount) end
-end)
-
--- String Multiplier Target Extractor
-local function parseNumber(str)
-    local cleaned = str:gsub("[%,%s]", ""):upper()
-    local suffix = cleaned:sub(-1)
-    if suffix == "K" then
-        return (tonumber(cleaned:sub(1, -2)) or 0) * 1000
-    elseif suffix == "M" then
-        return (tonumber(cleaned:sub(1, -2)) or 0) * 1000000
-    elseif suffix == "B" then
-        return (tonumber(cleaned:sub(1, -2)) or 0) * 1000000000
-    end
-    return tonumber(cleaned) or tonumber(cleaned:match("%d+")) or 0
-end
-
--- Loop System: Auto Validation Rebirth Thread
-local function rebirthLoop()
-    local remote = game:GetService("ReplicatedStorage"):WaitForChild("BrainrotPlinkoRebirth", 5)
-    local button = playerGui:WaitForChild("PlinkoExtraControlsGui", 5):WaitForChild("RebirthButton", 5)
-    local leaderstats = player:WaitForChild("leaderstats", 5)
-    local coinsValue = leaderstats and leaderstats:WaitForChild("Coins", 5)
-    
-    if not remote or not button or not coinsValue then
-        rebirthStatusLabel.Text = "Status: Error finding items. Check UI elements paths."
-        isRebirthLooping = false
-        rebirthToggleBtn.Text = "Auto Rebirth: OFF"
-        rebirthToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        return
-    end
-
-    while isRebirthLooping do
-        local requiredMoney = parseNumber(button.Text)
-        local currentMoney = coinsValue.Value
-        
-        rebirthStatusLabel.Text = string.format("Need: %s\nHave: %s", button.Text, tostring(currentMoney))
-        
-        if currentMoney >= requiredMoney and requiredMoney > 0 then
-            remote:FireServer()
-            rebirthStatusLabel.Text = "Status: Rebirth triggered!"
-            task.wait(0.5)
-        end
-        task.wait(rebirthDelay)
-    end
-end
-
-rebirthToggleBtn.MouseButton1Click:Connect(function()
-    isRebirthLooping = not isRebirthLooping
-    if isRebirthLooping then
-        rebirthToggleBtn.Text = "Auto Rebirth: ON"
-        rebirthToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
-        task.spawn(rebirthLoop)
-    else
-        rebirthToggleBtn.Text = "Auto Rebirth: OFF"
-        rebirthToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-        rebirthStatusLabel.Text = "Status: Waiting..."
-    end
-end)
--- ========================================================
--- END OF SCRIPT FRAMEWORK
 -- ========================================================
