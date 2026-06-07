@@ -470,12 +470,13 @@ local function getLatestDropAmount()
     return parseRawValue(state.dropAmount)
 end
 
--- Loop Thread: Auto Bet
+-- Loop Thread: Auto Bet (FIXED dynamic unpack matching user requirements)
 local function dropLoop()
     local remote = game:GetService("ReplicatedStorage"):WaitForChild("BrainrotPlinkoDrop", 5)
     while state.isDropLooping and _G.BrainrotHubActive and remote do
         local activeBet = getLatestDropAmount()
-        remote:FireServer(activeBet)
+        local args = { activeBet }
+        remote:FireServer(unpack(args))
         task.wait(state.dropSpeed)
     end
 end
@@ -484,7 +485,7 @@ ui.DropToggleBtn.MouseButton1Click:Connect(function()
     state.isDropLooping = not state.isDropLooping
     ui.DropToggleBtn.Text = state.isDropLooping and "Auto Bet: ON" or "Auto Bet: OFF"
     ui.DropToggleBtn.BackgroundColor3 = state.isDropLooping and Color3.fromRGB(40, 140, 40) or Color3.fromRGB(150, 40, 40)
-    if isDropLooping then task.spawn(dropLoop) end
+    if state.isDropLooping then task.spawn(dropLoop) end
 end)
 
 ui.MaxBetToggleBtn.MouseButton1Click:Connect(function()
