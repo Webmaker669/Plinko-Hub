@@ -62,7 +62,7 @@ screenToggleStroke.Parent = screenToggleBtn
 
 -- Main Window Shell (Dark blurred see-through styling)
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 440, 0, 310) -- Sized slightly up to store layout elements smoothly
+mainFrame.Size = UDim2.new(0, 440, 0, 310)
 mainFrame.Position = UDim2.new(0.35, 0, 0.3, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 mainFrame.BackgroundTransparency = 0.25
@@ -462,12 +462,12 @@ local function getLatestDropAmount()
         if coins then
             local balance = parseRawValue(coins.Value)
             if balance and balance > 0 then
-                ui.DropAmountInput.Text = tostring(balance)
-                return balance
+                ui.DropAmountInput.Text = tostring(math.floor(balance))
+                return math.floor(balance)
             end
         end
     end
-    return parseRawValue(state.dropAmount) -- Fallback safely to current typed value instead of breaking at 5
+    return parseRawValue(state.dropAmount)
 end
 
 -- Loop Thread: Auto Bet
@@ -484,7 +484,7 @@ ui.DropToggleBtn.MouseButton1Click:Connect(function()
     state.isDropLooping = not state.isDropLooping
     ui.DropToggleBtn.Text = state.isDropLooping and "Auto Bet: ON" or "Auto Bet: OFF"
     ui.DropToggleBtn.BackgroundColor3 = state.isDropLooping and Color3.fromRGB(40, 140, 40) or Color3.fromRGB(150, 40, 40)
-    if state.isDropLooping then task.spawn(dropLoop) end
+    if isDropLooping then task.spawn(dropLoop) end
 end)
 
 ui.MaxBetToggleBtn.MouseButton1Click:Connect(function()
@@ -569,6 +569,5 @@ ui.UnloadBtn.MouseButton1Click:Connect(function()
     ui.ScreenGui:Destroy()
 end)
 -- ========================================================
--- END OF SCRIPT SCRIPT FRAMEWORK
+-- END OF SCRIPT FRAMEWORK
 -- ========================================================
-
