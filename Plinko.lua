@@ -26,7 +26,7 @@ screenGui.Name = "BrainrotHubGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
--- Create Main Window Window Frame
+-- Create Main Window Frame
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 350, 0, 250)
 mainFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
@@ -133,13 +133,13 @@ tpSpeedInput.ClearTextOnFocus = false
 tpSpeedInput.Parent = tpPage
 
 local tpInputCorner = Instance.new("UICorner")
-inputCorner = Instance.new("UICorner")
-inputCorner.CornerRadius = UDim.new(0, 6)
-inputCorner.Parent = tpSpeedInput
+tpInputCorner.CornerRadius = UDim.new(0, 6)
+tpInputCorner.Parent = tpSpeedInput
 
 -- ========================================================
 -- END OF PART 1 | STARTING PART 2 BELOW
 -- ========================================================
+
 -- ========================================================
 -- [PART 2]: TARGET CONTENT PAGES & FUNCTIONAL LOOPS
 -- ========================================================
