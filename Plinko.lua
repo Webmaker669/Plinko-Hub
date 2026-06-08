@@ -152,6 +152,225 @@ userInputService.InputChanged:Connect(function(input)
 end)
 
 -- ========================================================
+-- [PART 2]: TAB CREATION & LAYOUT BUTTONS
+-- ========================================================
+local sidebar = _G.HubElements.Sidebar
+local contentContainer = _G.HubElements.ContentContainer
+
+-- Shared UI Rounding Styling Generator Function
+local function applyModernTheme(element, radius, isInput)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius)
+    corner.Parent = element
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 1
+    stroke.Color = isInput and Color3.fromRGB(90, 90, 90) or Color3.fromRGB(55, 55, 55)
+    stroke.Parent = element
+end
+
+-- Sidebar Button Builder Setup
+local tabs = {}
+local pages = {}
+local function createTab(name, order)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -10, 0, 35)
+    btn.Position = UDim2.new(0, 5, 0, 10 + ((order-1) * 38))
+    btn.BackgroundColor3 = order == 1 and Color3.fromRGB(50, 50, 50) or Color3.fromRGB(20, 20, 20)
+    btn.BackgroundTransparency = 0.3
+    btn.TextColor3 = order == 1 and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(170, 170, 170)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 13
+    btn.Text = name
+    btn.Parent = sidebar
+    applyModernTheme(btn, 6, false)
+
+    local page = Instance.new("Frame")
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.BackgroundTransparency = 1
+    page.Visible = order == 1
+    page.Parent = contentContainer
+
+    tabs[name] = btn
+    pages[name] = page
+
+    btn.MouseButton1Click:Connect(function()
+        for tName, tBtn in pairs(tabs) do
+            tBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+            tBtn.TextColor3 = Color3.fromRGB(170, 170, 170)
+            pages[tName].Visible = false
+        end
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        page.Visible = true
+    end)
+    return page
+end
+
+-- Construct Interface Functional Tabs
+local tpPage = createTab("Auto TP", 1)
+local dropPage = createTab("Auto Bet", 2)
+local rebirthPage = createTab("Auto Rebirth", 3)
+local settingsPage = createTab("Settings", 4)
+
+-- Disclaimer Asset
+local disclaimerLabel = Instance.new("TextLabel")
+disclaimerLabel.Size = UDim2.new(1, -10, 0, 95)
+disclaimerLabel.Position = UDim2.new(0, 5, 1, -105)
+disclaimerLabel.BackgroundTransparency = 1
+disclaimerLabel.TextColor3 = Color3.fromRGB(160, 120, 120)
+disclaimerLabel.Font = Enum.Font.SourceSansItalic
+disclaimerLabel.TextSize = 11
+disclaimerLabel.Text = "Disclaimer: Some features may get patched and not fixed by the script's creator."
+disclaimerLabel.TextWrapped = true
+disclaimerLabel.TextXAlignment = Enum.TextXAlignment.Center
+disclaimerLabel.TextYAlignment = Enum.TextYAlignment.Bottom
+disclaimerLabel.Parent = sidebar
+
+-- [TAB 1 ELEMENTS]: Auto Teleport
+local tpToggleBtn = Instance.new("TextButton")
+tpToggleBtn.Size = UDim2.new(1, -10, 0, 40)
+tpToggleBtn.Position = UDim2.new(0, 5, 0, 5)
+tpToggleBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+tpToggleBtn.BackgroundTransparency = 0.2
+tpToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpToggleBtn.Font = Enum.Font.SourceSansBold
+tpToggleBtn.TextSize = 15
+tpToggleBtn.Text = "Auto TP: OFF"
+tpToggleBtn.Parent = tpPage
+applyModernTheme(tpToggleBtn, 8, false)
+_G.HubElements.TpToggleBtn = tpToggleBtn
+
+local tpSpeedLabel = Instance.new("TextLabel")
+tpSpeedLabel.Size = UDim2.new(1, -10, 0, 20)
+tpSpeedLabel.Position = UDim2.new(0, 5, 0, 55)
+tpSpeedLabel.BackgroundTransparency = 1
+tpSpeedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+tpSpeedLabel.Font = Enum.Font.SourceSans
+tpSpeedLabel.TextSize = 13
+tpSpeedLabel.Text = "TP Rate Cycle Delay (seconds):"
+tpSpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+tpSpeedLabel.Parent = tpPage
+
+local tpSpeedInput = Instance.new("TextBox")
+tpSpeedInput.Size = UDim2.new(1, -10, 0, 35)
+tpSpeedInput.Position = UDim2.new(0, 5, 0, 80)
+tpSpeedInput.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+tpSpeedInput.BackgroundTransparency = 0.4
+tpSpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpSpeedInput.Font = Enum.Font.SourceSans
+tpSpeedInput.TextSize = 15
+tpSpeedInput.Text = tostring(_G.HubState.tpSpeed)
+tpSpeedInput.ClearTextOnFocus = false
+tpSpeedInput.Parent = tpPage
+applyModernTheme(tpSpeedInput, 6, true)
+_G.HubElements.TpSpeedInput = tpSpeedInput
+
+-- [TAB 2 ELEMENTS]: Auto Bet & Max Bet & Board Mod
+local dropToggleBtn = Instance.new("TextButton")
+dropToggleBtn.Size = UDim2.new(1, -10, 0, 40)
+dropToggleBtn.Position = UDim2.new(0, 5, 0, 5)
+dropToggleBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+dropToggleBtn.BackgroundTransparency = 0.2
+dropToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+dropToggleBtn.Font = Enum.Font.SourceSansBold
+dropToggleBtn.TextSize = 15
+dropToggleBtn.Text = "Auto Bet: OFF"
+dropToggleBtn.Parent = dropPage
+applyModernTheme(dropToggleBtn, 8, false)
+_G.HubElements.DropToggleBtn = dropToggleBtn
+
+local maxBetToggleBtn = Instance.new("TextButton")
+maxBetToggleBtn.Size = UDim2.new(1, -10, 0, 30)
+maxBetToggleBtn.Position = UDim2.new(0, 5, 0, 50)
+maxBetToggleBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+maxBetToggleBtn.BackgroundTransparency = 0.4
+maxBetToggleBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+maxBetToggleBtn.Font = Enum.Font.SourceSansBold
+maxBetToggleBtn.TextSize = 13
+maxBetToggleBtn.Text = "Auto Max Bet: OFF"
+maxBetToggleBtn.Parent = dropPage
+applyModernTheme(maxBetToggleBtn, 6, false)
+_G.HubElements.MaxBetToggleBtn = maxBetToggleBtn
+
+local dropAmountInput = Instance.new("TextBox")
+dropAmountInput.Size = UDim2.new(1, -10, 0, 35)
+dropAmountInput.Position = UDim2.new(0, 5, 0, 90)
+dropAmountInput.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+dropAmountInput.BackgroundTransparency = 0.4
+dropAmountInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+dropAmountInput.Text = tostring(_G.HubState.dropAmount)
+dropAmountInput.ClearTextOnFocus = false
+dropAmountInput.Parent = dropPage
+applyModernTheme(dropAmountInput, 6, true)
+_G.HubElements.DropAmountInput = dropAmountInput
+
+local winToggleBtn = Instance.new("TextButton")
+winToggleBtn.Size = UDim2.new(1, -10, 0, 35)
+winToggleBtn.Position = UDim2.new(0, 5, 0, 135)
+winToggleBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+winToggleBtn.BackgroundTransparency = 0.2
+winToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+winToggleBtn.Font = Enum.Font.SourceSansBold
+winToggleBtn.TextSize = 14
+winToggleBtn.Text = "Always Win (Board Expand): OFF"
+winToggleBtn.Parent = dropPage
+applyModernTheme(winToggleBtn, 8, false)
+_G.HubElements.WinToggleBtn = winToggleBtn
+
+-- [TAB 3 ELEMENTS]: Auto Rebirth
+local rebirthToggleBtn = Instance.new("TextButton")
+rebirthToggleBtn.Size = UDim2.new(1, -10, 0, 40)
+rebirthToggleBtn.Position = UDim2.new(0, 5, 0, 5)
+rebirthToggleBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+rebirthToggleBtn.BackgroundTransparency = 0.2
+rebirthToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+rebirthToggleBtn.Font = Enum.Font.SourceSansBold
+rebirthToggleBtn.TextSize = 16
+rebirthToggleBtn.Text = "Auto Rebirth: OFF"
+rebirthToggleBtn.Parent = rebirthPage
+applyModernTheme(rebirthToggleBtn, 8, false)
+_G.HubElements.RebirthToggleBtn = rebirthToggleBtn
+
+local rebirthStatusLabel = Instance.new("TextLabel")
+rebirthStatusLabel.Size = UDim2.new(1, -10, 0, 60)
+rebirthStatusLabel.Position = UDim2.new(0, 5, 0, 55)
+rebirthStatusLabel.BackgroundTransparency = 1
+rebirthStatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+rebirthStatusLabel.Font = Enum.Font.SourceSans
+rebirthStatusLabel.TextSize = 14
+rebirthStatusLabel.Text = "Status: Waiting..."
+rebirthStatusLabel.TextWrapped = true
+rebirthStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+rebirthStatusLabel.TextYAlignment = Enum.TextYAlignment.Top
+rebirthStatusLabel.Parent = rebirthPage
+_G.HubElements.RebirthStatusLabel = rebirthStatusLabel
+
+-- [TAB 4 ELEMENTS]: Settings
+local bindToggleBtn = Instance.new("TextButton")
+bindToggleBtn.Size = UDim2.new(1, -10, 0, 35)
+bindToggleBtn.Position = UDim2.new(0, 5, 0, 30)
+bindToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+bindToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+bindToggleBtn.Font = Enum.Font.SourceSansBold
+bindToggleBtn.TextSize = 14
+bindToggleBtn.Text = "Keybind: RightControl"
+bindToggleBtn.Parent = settingsPage
+applyModernTheme(bindToggleBtn, 8, false)
+_G.HubElements.BindToggleBtn = bindToggleBtn
+
+local unloadBtn = Instance.new("TextButton")
+unloadBtn.Size = UDim2.new(1, -10, 0, 40)
+unloadBtn.Position = UDim2.new(0, 5, 0, 120)
+unloadBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+unloadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+unloadBtn.Font = Enum.Font.SourceSansBold
+unloadBtn.TextSize = 15
+unloadBtn.Text = "UNLOAD HUB SCRIPT"
+unloadBtn.Parent = settingsPage
+applyModernTheme(unloadBtn, 8, false)
+_G.HubElements.UnloadBtn = unloadBtn
+
+-- ========================================================
 -- [PART 3]: AUTOMATION LOOPS, MATHEMATICS & CLEAN UNLOADER
 -- ========================================================
 local player = game.Players.LocalPlayer
@@ -159,15 +378,12 @@ local userInputService = game:GetService("UserInputService")
 local state = _G.HubState
 local ui = _G.HubElements
 
--- FIXED Parsing Engine: Handles sudden large jumps, scientific notations, decimals, and abbreviations safely
+-- Robust String Value Extractor Module
 local function parseRawValue(val)
     if type(val) == "number" then return val end
     if type(val) ~= "string" then return 0 end
     
-    -- Strip whitespaces and formatting commas
     local cleaned = val:gsub("[%s%,]", ""):upper()
-    
-    -- Detect standard letter multiplier endings
     local suffix = cleaned:sub(-1)
     local multiplier = 1
     
@@ -185,10 +401,8 @@ local function parseRawValue(val)
         cleaned = cleaned:sub(1, -2)
     end
     
-    -- Handles raw numbers, decimals, or scientific notation strings perfectly
     local baseNumber = tonumber(cleaned)
     if not baseNumber then
-        -- Fallback recovery search if unexpected text is combined
         local match = cleaned:match("[%d%.e%+%-]+")
         baseNumber = tonumber(match) or 0
     end
@@ -196,7 +410,7 @@ local function parseRawValue(val)
     return math.floor(baseNumber * multiplier)
 end
 
--- Open/Close Handler
+-- GUI Open/Close Engine Hooks
 local function toggleGuiDisplay()
     ui.MainFrame.Visible = not ui.MainFrame.Visible
 end
@@ -247,34 +461,40 @@ ui.TpSpeedInput.FocusLost:Connect(function()
     if num and num >= 0 then state.tpSpeed = num else ui.TpSpeedInput.Text = tostring(state.tpSpeed) end
 end)
 
--- Auto Dynamic Max Bet Balance Checker Safeguard
-local function getLatestDropAmount()
-    if state.isMaxBetEnabled then
-        local leaderstats = player:FindFirstChild("leaderstats")
-        local coins = leaderstats and leaderstats:FindFirstChild("Coins")
-        if coins then
-            local balance = parseRawValue(coins.Value)
-            if balance and balance > 0 then
-                ui.DropAmountInput.Text = tostring(balance)
-                return balance
-            end
-        end
-    end
-    return parseRawValue(state.dropAmount)
-end
-
--- Loop Thread: Auto Bet
+-- Loop Thread: Direct Memory-Value Auto Bet Engine
 local function dropLoop()
     local remote = game:GetService("ReplicatedStorage"):WaitForChild("BrainrotPlinkoDrop", 5)
+    
     while state.isDropLooping and _G.BrainrotHubActive and remote do
-        local activeBet = getLatestDropAmount()
-        local args = { activeBet }
-        remote:FireServer(unpack(args))
+        local activeBet = 0
+        
+        -- DIRECT COIN CHECKER CRITICAL FIX
+        if state.isMaxBetEnabled then
+            local leaderstats = player:FindFirstChild("leaderstats")
+            local coins = leaderstats and leaderstats:FindFirstChild("Coins")
+            if coins then
+                -- Pulls value data from game memory instead of waiting for UI text transforms
+                activeBet = parseRawValue(coins.Value)
+                
+                -- Instant live feed text visual updating
+                ui.DropAmountInput.Text = tostring(activeBet)
+            else
+                activeBet = parseRawValue(state.dropAmount)
+            end
+        else
+            activeBet = parseRawValue(state.dropAmount)
+        end
+        
+        -- Prevent sending zero or broken numbers down the pipe
+        if activeBet and activeBet > 0 then
+            remote:FireServer(unpack({ activeBet }))
+        end
+        
         task.wait(state.dropSpeed)
     end
 end
 
--- Helper structure to force safety updates on UI Buttons
+-- Layout Button Color Refresh Hook
 local function updateBetButtonsUI()
     ui.DropToggleBtn.Text = state.isDropLooping and "Auto Bet: ON" or "Auto Bet: OFF"
     ui.DropToggleBtn.BackgroundColor3 = state.isDropLooping and Color3.fromRGB(40, 140, 40) or Color3.fromRGB(150, 40, 40)
@@ -284,9 +504,8 @@ local function updateBetButtonsUI()
 end
 
 ui.DropToggleBtn.MouseButton1Click:Connect(function()
-    -- Turning on Auto Bet turns off Max Bet to prevent conflicts
     if not state.isDropLooping then
-        state.isMaxBetEnabled = false
+        state.isMaxBetEnabled = false -- Anti-Confusion Check
     end
     
     state.isDropLooping = not state.isDropLooping
@@ -294,15 +513,20 @@ ui.DropToggleBtn.MouseButton1Click:Connect(function()
     if state.isDropLooping then task.spawn(dropLoop) end
 end)
 
--- ANTI-CONFUSION UI: Forces Auto Bet off if Max Bet is clicked/toggled on
 ui.MaxBetToggleBtn.MouseButton1Click:Connect(function()
     if not state.isMaxBetEnabled then
-        state.isDropLooping = false -- Turns off standard custom auto-betting
+        state.isDropLooping = false -- Disables basic custom loop mode
     end
     
     state.isMaxBetEnabled = not state.isMaxBetEnabled
     updateBetButtonsUI()
-    if state.isMaxBetEnabled then getLatestDropAmount() end
+    
+    -- If user turns max bet on, automatically fire up the thread directly
+    if state.isMaxBetEnabled then 
+        state.isDropLooping = true
+        updateBetButtonsUI()
+        task.spawn(dropLoop) 
+    end
 end)
 
 ui.DropAmountInput.FocusLost:Connect(function()
