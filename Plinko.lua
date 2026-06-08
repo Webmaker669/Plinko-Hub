@@ -378,34 +378,31 @@ local userInputService = game:GetService("UserInputService")
 local state = _G.HubState
 local ui = _G.HubElements
 
--- Robust String Value Extractor Module
+-- CRITICAL FIX: Enhanced translation dictionary covering high-tier suffixes (Qa, Qi, Sx, Sp)
+local suffixMultipliers = {
+    ["K"] = 1000,
+    ["M"] = 1000000,
+    ["B"] = 1000000000,
+    ["T"] = 1000000000000,
+    ["QA"] = 1000000000000000,       -- Quadrillion Fix
+    ["QI"] = 1000000000000000000,    -- Quintillion
+    ["SX"] = 1000000000000000000000, -- Sextillion
+    ["SP"] = 1000000000000000000000000 -- Septillion
+}
+
 local function parseRawValue(val)
     if type(val) == "number" then return val end
     if type(val) ~= "string" then return 0 end
     
+    -- Strip out commas and spaces, transform to uppercase to easily check things like "Qa"
     local cleaned = val:gsub("[%s%,]", ""):upper()
-    local suffix = cleaned:sub(-1)
-    local multiplier = 1
     
-    if suffix == "K" then 
-        multiplier = 1000
-        cleaned = cleaned:sub(1, -2)
-    elseif suffix == "M" then 
-        multiplier = 1000000
-        cleaned = cleaned:sub(1, -2)
-    elseif suffix == "B" then 
-        multiplier = 1000000000 
-        cleaned = cleaned:sub(1, -2)
-    elseif suffix == "T" then
-        multiplier = 1000000000000
-        cleaned = cleaned:sub(1, -2)
-    end
+    -- Dynamically isolate alphabetic characters from numbers
+    local numericPart = cleaned:match("[%d%.e%+%-]+") or "0"
+    local characterPart = cleaned:gsub("[%d%.e%+%-]", "")
     
-    local baseNumber = tonumber(cleaned)
-    if not baseNumber then
-        local match = cleaned:match("[%d%.e%+%-]+")
-        baseNumber = tonumber(match) or 0
-    end
+    local baseNumber = tonumber(numericPart) or 0
+    local multiplier = suffixMultipliers[characterPart] or 1
     
     return math.floor(baseNumber * multiplier)
 end
@@ -468,16 +465,13 @@ local function dropLoop()
     while state.isDropLooping and _G.BrainrotHubActive and remote do
         local activeBet = 0
         
-        -- DIRECT COIN CHECKER CRITICAL FIX
         if state.isMaxBetEnabled then
             local leaderstats = player:FindFirstChild("leaderstats")
             local coins = leaderstats and leaderstats:FindFirstChild("Coins")
             if coins then
-                -- Pulls value data from game memory instead of waiting for UI text transforms
-                activeBet = parseRawValue(coins.Value)
-                
-                -- Instant live feed text visual updating
-                ui.DropAmountInput.Text = tostring(activeBet)
+                -- Extracts full number values straight from Leaderstats value string container
+                activeBet = parseRawValue(tostring(coins.Value))
+                ui.DropAmountInput.Text = tostring(coins.Value)
             else
                 activeBet = parseRawValue(state.dropAmount)
             end
@@ -485,7 +479,6 @@ local function dropLoop()
             activeBet = parseRawValue(state.dropAmount)
         end
         
-        -- Prevent sending zero or broken numbers down the pipe
         if activeBet and activeBet > 0 then
             remote:FireServer(unpack({ activeBet }))
         end
@@ -505,7 +498,7 @@ end
 
 ui.DropToggleBtn.MouseButton1Click:Connect(function()
     if not state.isDropLooping then
-        state.isMaxBetEnabled = false -- Anti-Confusion Check
+        state.isMaxBetEnabled = false
     end
     
     state.isDropLooping = not state.isDropLooping
@@ -515,13 +508,12 @@ end)
 
 ui.MaxBetToggleBtn.MouseButton1Click:Connect(function()
     if not state.isMaxBetEnabled then
-        state.isDropLooping = false -- Disables basic custom loop mode
+        state.isDropLooping = false
     end
     
     state.isMaxBetEnabled = not state.isMaxBetEnabled
     updateBetButtonsUI()
     
-    -- If user turns max bet on, automatically fire up the thread directly
     if state.isMaxBetEnabled then 
         state.isDropLooping = true
         updateBetButtonsUI()
@@ -568,14 +560,14 @@ local function rebirthLoop()
     
     while state.isRebirthLooping and _G.BrainrotHubActive and remote and button and coinsValue do
         local requiredMoney = parseRawValue(button.Text)
-        local currentMoney = parseRawValue(coinsValue.Value)
+        local currentMoney = parseRawValue(tostring(coinsValue.Value))
         
         if currentMoney >= requiredMoney and requiredMoney > 0 then
-            ui.RebirthStatusLabel.Text = string.format("Rebirthing!\nNeed: %s | Have: %s", button.Text, tostring(currentMoney))
+            ui.RebirthStatusLabel.Text = string.format("Rebirthing!\nNeed: %s | Have: %s", button.Text, tostring(coinsValue.Value))
             remote:FireServer()
             task.wait(0.5)
         else
-            ui.RebirthStatusLabel.Text = string.format("Status: Insufficient Coins\nNeed: %s | Have: %s", button.Text, tostring(currentMoney))
+            ui.RebirthStatusLabel.Text = string.format("Status: Insufficient Coins\nNeed: %s | Have: %s", button.Text, tostring(coinsValue.Value))
         end
         task.wait(state.rebirthDelay)
     end
